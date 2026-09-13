@@ -9,7 +9,7 @@ My documented Ubuntu Server homelab featuring Pi-hole, Unbound, Tailscale, Docke
 | Server LAN IP | 192.168.1.253 |
 | Subnet | /24 |
 | Default Gateway | 192.168.1.1 |
-| DNS Server | 192.168.1.1 |
+| Host DNS Resolver | 192.168.1.1 |
 
 ## Services
 | Service | Address | Purpose |
