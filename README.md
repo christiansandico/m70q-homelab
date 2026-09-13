@@ -11,3 +11,9 @@ My documented Ubuntu Server homelab featuring Pi-hole, Unbound, Tailscale, Docke
 | Default Gateway | 192.168.1.1 |
 | DNS Server | 192.168.1.1 |
 
+## Services
+| Service | Address | Purpose |
+| --- | --- | --- |
+| Pi-hole | 192.168.1.253:53 | Network-wide DNS filtering |
+| Unbound | 127.0.0.1:5335 | Local recursive DNS resolver with DNSSEC validation |
+
