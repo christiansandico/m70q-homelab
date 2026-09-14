@@ -80,8 +80,9 @@ The M70q itself normally uses Tailscale's DNS integration. During testing, stopp
 Remote clients depend on Tailscale to reach Pi-hole through `100.66.59.119`. If Tailscale becomes unavailable, they can no longer use that path to the M70q and will depend on the DNS configuration of their underlying network. Likewise, a LAN client that is manually configured to use only `192.168.1.253` would lose DNS resolution if the M70q or Pi-hole becomes unavailable unless another DNS server is configured.
 
 
-192.168.1.253 ─┐
-                ├─► Same M70q → Same Pi-hole
-100.66.59.119 ─┘
-
+```text
+192.168.1.253 ──┐
+                ├──► M70q ──► Pi-hole
+100.66.59.119 ──┘
+```
 
