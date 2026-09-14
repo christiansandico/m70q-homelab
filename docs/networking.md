@@ -86,3 +86,30 @@ Remote clients depend on Tailscale to reach Pi-hole through `100.66.59.119`. If 
 100.66.59.119 ──┘
 ```
 
+### Client DNS and Fallback
+
+### Client DNS and Fallback
+
+My Windows PC uses a static IPv4 address because it hosts Docker services that need a consistent LAN address. The underlying DNS server on the Windows network adapter is manually configured to use Cloudflare DNS at `1.1.1.1`.
+
+When Tailscale is connected and **Override DNS** is enabled, Tailscale takes precedence over the DNS server configured on the Windows adapter. DNS queries are sent through Tailscale to the M70q at `100.66.59.119:53`, where Pi-hole handles filtering and forwards allowed queries requiring upstream resolution to Unbound at `127.0.0.1:5335`.
+
+If Tailscale is disconnected, the Tailscale DNS override is removed and Windows returns to its underlying DNS configuration at `1.1.1.1`. This provides an independent DNS path when Tailscale is not being used, although Pi-hole filtering and Unbound resolution are bypassed.
+
+This behavior was verified using `nslookup`:
+
+- **Tailscale connected:** Windows used `magicdns.localhost-tailscale-daemon` (`fd7a:115c:a1e0::53`) as its local DNS resolver.
+- **Tailscale disconnected:** Windows used Cloudflare DNS at `1.1.1.1`.
+
+### IPv6
+
+IPv6 configuration is advertised on the local network. The Windows PC receives a global IPv6 address, an IPv6 default gateway, and IPv6 DNS servers.
+
+Testing showed that the PC could successfully reach its local IPv6 gateway at `fe80::1`, but could not reach public IPv6 destinations or the advertised IPv6 DNS servers.
+
+The following connectivity was observed:
+
+```text
+PC → IPv6 gateway (fe80::1)       ✓
+PC → Public IPv6 Internet         ✕
+PC → Advertised IPv6 DNS servers  ✕
