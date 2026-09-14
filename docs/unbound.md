@@ -1,3 +1,5 @@
+# Unbound
+
 ## Purpose
 
 Unbound provides recursive DNS resolution for the homelab and acts as Pi-hole's upstream DNS resolver.
@@ -17,6 +19,9 @@ DNS hierarchy
   ├── Root servers
   ├── TLD servers
   └── Authoritative DNS servers
+```
+
+Unbound listens only on the M70q's loopback address at `127.0.0.1:5335`. This means it is not directly exposed to LAN or Tailscale clients; Pi-hole is the DNS service clients interact with.
 
 ## Installation
 
@@ -39,6 +44,13 @@ Unbound is configured to listen only on the M70q's loopback interface:
 ```text
 interface: 127.0.0.1
 port: 5335
+```
+
+IPv4, UDP, and TCP DNS queries are enabled. Native IPv6 resolution is currently disabled because working IPv6 Internet connectivity is not available on the network.
+
+Several security and reliability options are also enabled, including DNSSEC hardening, prefetching, and an EDNS buffer size of `1232` bytes.
+
+Private IPv4 and IPv6 address ranges are defined using `private-address` directives. This helps prevent public DNS responses from unexpectedly returning addresses belonging to private network ranges.
 
 ## DNSSEC
 
@@ -68,23 +80,7 @@ dig → Unbound :5335 → DNS resolution
 
 Integrated test:
 Client → Pi-hole :53 → Unbound :5335 → DNS resolution
-
-## Verification
-
-Unbound was tested directly on the M70q by sending DNS queries to `127.0.0.1` on port `5335`.
-
-Successful responses confirmed that Unbound was listening on the expected address and port and could perform recursive DNS resolution independently of Pi-hole.
-
-The complete Pi-hole and Unbound integration was then verified by sending DNS queries through Pi-hole. Allowed queries were successfully forwarded to Unbound and returned valid DNS responses.
-
-This verified both layers of the DNS stack:
-
-```text
-Direct test:
-dig → Unbound :5335 → DNS resolution
-
-Integrated test:
-Client → Pi-hole :53 → Unbound :5335 → DNS resolution
+```
 
 ## Troubleshooting Notes
 
@@ -101,4 +97,16 @@ Unbound was then configured to listen only on the IPv4 loopback address `127.0.0
 ```text
 interface: 127.0.0.1
 port: 5335
+```
 
+This separated the roles of the two DNS services:
+
+```text
+Clients
+   ↓
+Pi-hole :53
+   ↓
+Unbound 127.0.0.1:5335
+```
+
+After the configuration change, Unbound started successfully and DNS resolution through Pi-hole was verified.
