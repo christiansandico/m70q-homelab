@@ -88,8 +88,6 @@ Remote clients depend on Tailscale to reach Pi-hole through `100.66.59.119`. If 
 
 ### Client DNS and Fallback
 
-### Client DNS and Fallback
-
 My Windows PC uses a static IPv4 address because it hosts Docker services that need a consistent LAN address. The underlying DNS server on the Windows network adapter is manually configured to use Cloudflare DNS at `1.1.1.1`.
 
 When Tailscale is connected and **Override DNS** is enabled, Tailscale takes precedence over the DNS server configured on the Windows adapter. DNS queries are sent through Tailscale to the M70q at `100.66.59.119:53`, where Pi-hole handles filtering and forwards allowed queries requiring upstream resolution to Unbound at `127.0.0.1:5335`.
