@@ -1,5 +1,5 @@
 # m70q-homelab
-My documented Ubuntu Server homelab featuring Pi-hole, Unbound, Tailscale, Docker, monitoring, and networking labs.
+Documented home lab running on Ubuntu Server — a self-hosted infrastructure project covering network services, containerized applications, and networking labs. Actively maintained and expanded.
 
 ## Network Configuration
 | Field | Value |
