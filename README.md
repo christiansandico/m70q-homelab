@@ -1,6 +1,6 @@
 # m70q-homelab
 
-A self-hosted homelab running on Ubuntu Server for learning Linux administration, networking, DNS, security, containerization, and infrastructure management.
+A self-hosted homelab running on Ubuntu Server for learning Linux administration, networking, DNS, security, containerization, monitoring, and infrastructure management.
 
 Core network services run natively on the host, while Docker is used for application workloads.
 
@@ -24,8 +24,8 @@ Core network services run natively on the host, while Docker is used for applica
 | Unbound | Native | `127.0.0.1:5335` | Recursive DNS resolver with DNSSEC validation |
 | Tailscale | Native | `100.66.59.119` | Secure remote access, remote DNS, and optional exit node |
 | UFW | Native | Host firewall | Restricts access to trusted network paths |
-
-Docker-based application services will be added separately from the core networking infrastructure.
+| Docker | Native | Host runtime | Runs containerized application workloads |
+| Uptime Kuma | Docker | `192.168.1.253:3001` / Tailscale | Service, DNS, and connectivity monitoring |
 
 ## DNS Architecture
 
@@ -115,11 +115,52 @@ Internet
 
 Using the exit node is optional. Without it, normal Internet traffic continues through the client's existing Internet connection while Tailscale is used for tailnet resources and configured DNS.
 
+## Containerized Applications
+
+Docker is used for application workloads while core networking services remain installed natively on Ubuntu Server.
+
+Uptime Kuma is the first containerized application deployed in the homelab. Docker Compose defines the deployment, while a Docker named volume provides persistent application data.
+
+```text
+Ubuntu Server
+│
+├── Native services
+│   ├── Pi-hole
+│   ├── Unbound
+│   ├── Tailscale
+│   └── UFW
+│
+└── Docker
+    └── Uptime Kuma
+```
+
+The Uptime Kuma container runs on a Docker bridge network and communicates with selected native services through firewall-controlled paths.
+
+## Monitoring
+
+Uptime Kuma provides basic availability monitoring for the homelab.
+
+The current monitoring setup checks:
+
+- M70q reachability
+- Pi-hole web interface
+- Pi-hole DNS resolution
+- Internet connectivity
+- External DNS resolution
+
+Discord is configured for monitor notifications.
+
+Because Uptime Kuma runs locally on the M70q, it cannot independently report a complete M70q or home Internet outage if the server cannot reach Discord. Independent external monitoring would be required for that use case.
+
 ## Firewall
 
 UFW provides host-level firewall protection using a default-deny policy for incoming traffic.
 
-Access to services such as DNS and web interfaces is restricted to trusted LAN and Tailscale network paths. Tailscale's networking and Linux IP forwarding are used separately for exit-node traffic.
+Access to services such as DNS and web interfaces is restricted to trusted LAN and Tailscale network paths.
+
+Docker introduces an additional networking boundary. Uptime Kuma's Docker network is permitted to reach only the native host services required for monitoring, including Pi-hole's HTTP and DNS ports.
+
+Tailscale's networking and Linux IP forwarding are used separately for exit-node traffic.
 
 ## Documentation
 
@@ -130,6 +171,9 @@ Detailed documentation for the homelab is available in the `docs/` directory:
 - [Unbound](docs/unbound.md)
 - [Tailscale](docs/tailscale.md)
 - [Firewall](docs/firewall.md)
+- [Uptime Kuma](docs/uptime-kuma.md)
+
+Docker application configurations are stored separately under the `docker/` directory.
 
 ## Project Status
 
@@ -145,11 +189,15 @@ Detailed documentation for the homelab is available in the `docs/` directory:
 - Pi-hole DNS over Tailscale
 - Tailscale exit node
 - UFW firewall configuration
+- Docker Engine and Docker Compose
+- Docker persistent storage and bridge networking
+- Uptime Kuma monitoring
+- Discord monitor notifications
+- Docker-to-host firewall troubleshooting
 - Reboot and service persistence testing
 
 ### Planned
 
-- Docker
-- Uptime Kuma
 - Additional self-hosted applications
-- Networking labs and monitoring
+- Expanded infrastructure monitoring and metrics
+- Networking labs
