@@ -26,7 +26,7 @@ Core network services run natively on the host, while Docker is used for applica
 | UFW | Native | Host firewall | Restricts access to trusted network paths |
 | Docker | Native | Host runtime | Runs containerized application workloads |
 | Uptime Kuma | Docker | `192.168.1.253:3001` | Service, DNS, and connectivity monitoring |
-| Stirling PDF | Docker | `192.168.1.253:8080` / Tailscale | Self-hosted PDF management and processing |
+| Stirling PDF | Docker | `192.168.1.253:8080` / `100.66.59.119:8080` | Self-hosted PDF management and processing |
 
 ## DNS Architecture
 
@@ -98,31 +98,61 @@ Blocked domains are answered locally by Pi-hole and therefore do not need to be 
 
 ## Local DNS
 
-Pi-hole provides local DNS resolution for services hosted on the M70q.
+Pi-hole provides private DNS records for services hosted on the M70q.
 
-Local DNS records resolve service hostnames to the M70q's static LAN address (`192.168.1.253`).
+Separate DNS names are used for LAN and Tailscale access. Local records resolve to the M70q's static LAN address (`192.168.1.253`), while Tailscale records resolve to its Tailscale address (`100.66.59.119`).
 
-| Local Address | Service |
+### Local
+
+| Address | Service |
 | --- | --- |
 | `http://pihole.home.arpa/admin/login` | Pi-hole |
 | `http://stirling.home.arpa:8080` | Stirling PDF |
 | `http://uptime.home.arpa:3001` | Uptime Kuma |
 | `http://status.home.arpa:3001/status/homelab` | Homelab Status Page |
-| `m70q-srvr.home.arpa` | M70q server |
+| `m70q-srvr.home.arpa` | M70q Server |
 
-The DNS records themselves map only the hostname to `192.168.1.253`. Port numbers are not part of DNS; they identify the port used by each web service.
+### Tailscale
 
-For example:
+| Address | Service |
+| --- | --- |
+| `http://pihole-ts.home.arpa/admin/login` | Pi-hole |
+| `http://stirling-ts.home.arpa:8080` | Stirling PDF |
+| `http://uptime-ts.home.arpa:3001` | Uptime Kuma |
+| `http://status-ts.home.arpa:3001/status/homelab` | Homelab Status Page |
+| `m70q-srvr-ts.home.arpa` | M70q Server |
+
+Local DNS records point to:
 
 ```text
-stirling.home.arpa → 192.168.1.253
+192.168.1.253
 ```
 
-Stirling PDF listens on TCP port 8080, so it can be accessed locally at:
+Tailscale DNS records point to:
 
 ```text
-http://stirling.home.arpa:8080
+100.66.59.119
 ```
+
+This provides two explicit network paths to the same services. For example:
+
+```text
+Local:
+stirling.home.arpa
+        ↓
+192.168.1.253
+        ↓
+Stirling PDF :8080
+
+Tailscale:
+stirling-ts.home.arpa
+        ↓
+100.66.59.119
+        ↓
+Stirling PDF :8080
+```
+
+DNS itself maps hostnames to IP addresses. Port numbers are not part of DNS and still identify the application service being accessed.
 
 ### Why `.home.arpa`?
 
@@ -130,11 +160,27 @@ The `home.arpa` domain is reserved specifically for naming devices and services 
 
 Using `.home.arpa` also avoids `.local`, which is reserved for Multicast DNS (mDNS) and is commonly used by technologies such as Bonjour and Avahi.
 
-These records are resolved locally by Pi-hole and are not intended to be publicly resolvable on the Internet.
+These records are provided by the homelab's Pi-hole DNS server and are not intended to be publicly resolvable on the Internet.
 
 ## Remote Access
 
 Tailscale provides encrypted remote connectivity to the homelab without requiring services to be directly exposed to the public Internet.
+
+Services available through the M70q's Tailscale address can use their corresponding `-ts.home.arpa` DNS names when the client is connected to Tailscale and using Pi-hole for DNS.
+
+For example:
+
+```text
+http://stirling-ts.home.arpa:8080
+```
+
+resolves to:
+
+```text
+100.66.59.119
+```
+
+and reaches Stirling PDF through the Tailscale network rather than through the M70q's LAN address.
 
 The M70q also operates as an optional Tailscale exit node. When selected by a remote device, Internet traffic can be routed through the M70q and the home Internet connection.
 
@@ -222,10 +268,16 @@ The current monitoring setup checks:
 - Internet connectivity
 - External DNS resolution
 
-A local status page is available at:
+The local status page is available at:
 
 ```text
 http://status.home.arpa:3001/status/homelab
+```
+
+The corresponding Tailscale address is:
+
+```text
+http://status-ts.home.arpa:3001/status/homelab
 ```
 
 Discord is configured for monitor notifications.
@@ -271,6 +323,7 @@ Docker application configurations are stored separately under the `docker/` dire
 - Native Unbound recursive DNS
 - DNSSEC validation
 - Local DNS using the reserved `.home.arpa` namespace
+- Separate LAN and Tailscale DNS names for homelab services
 - Native Tailscale remote access
 - Pi-hole DNS over Tailscale
 - Tailscale exit node
