@@ -25,8 +25,9 @@ Core network services run natively on the host, while Docker is used for applica
 | Tailscale | Native | `100.66.59.119` | Secure remote access, remote DNS, and optional exit node |
 | UFW | Native | Host firewall | Restricts access to trusted network paths |
 | Docker | Native | Host runtime | Runs containerized application workloads |
-| Uptime Kuma | Docker | `192.168.1.253:3001` | Service, DNS, and connectivity monitoring |
+| Uptime Kuma | Docker | `192.168.1.253:3001` | Service, DNS, connectivity, and Docker container monitoring |
 | Stirling PDF | Docker | `192.168.1.253:8080` / `100.66.59.119:8080` | Self-hosted PDF management and processing |
+| Palworld | Docker | `192.168.1.253:8211` / `100.66.59.119:8211` | Private dedicated game server |
 
 ## DNS Architecture
 
@@ -87,7 +88,7 @@ Client ← Pi-hole ← DNS answer ← Unbound
 ```text
 Client → Pi-hole :53
              ↓
-        Gravity match
+         Gravity match
              ↓
 Client ← 0.0.0.0
 
@@ -182,6 +183,14 @@ resolves to:
 
 and reaches Stirling PDF through the Tailscale network rather than through the M70q's LAN address.
 
+Palworld also uses Tailscale for private remote access. Authorized remote players connect directly to:
+
+```text
+100.66.59.119:8211
+```
+
+No router port forwarding is configured for Palworld.
+
 The M70q also operates as an optional Tailscale exit node. When selected by a remote device, Internet traffic can be routed through the M70q and the home Internet connection.
 
 ```text
@@ -208,6 +217,7 @@ Current containerized applications:
 
 - Uptime Kuma
 - Stirling PDF
+- Palworld
 
 ```text
 Ubuntu Server
@@ -220,10 +230,49 @@ Ubuntu Server
 │
 └── Docker
     ├── Uptime Kuma
-    └── Stirling PDF
+    │   └── Docker socket proxy
+    ├── Stirling PDF
+    └── Palworld
 ```
 
 Docker Compose is used to define application deployments, with persistent application data stored outside the disposable container layer.
+
+### Palworld Dedicated Server
+
+Palworld runs as a private Docker-based dedicated game server.
+
+Players on the LAN connect through:
+
+```text
+192.168.1.253:8211
+```
+
+Authorized remote players connect through Tailscale:
+
+```text
+100.66.59.119:8211
+```
+
+The server is configured for two players and includes:
+
+- Password-protected access
+- Persistent world and player data
+- Cross-platform support
+- No item loss on player death
+- Player logging
+- Automatic idle pausing after five minutes
+- Automatic wake when a player reconnects
+- Save-before-pause behavior
+- Daily automatic backups
+- 14-day backup retention
+- Uptime Kuma container monitoring
+- Discord monitor notifications
+
+The Palworld REST API is enabled internally for server management functionality but is not published through Docker.
+
+Server and administrator passwords are stored in a local `.env` file rather than in the public Compose configuration.
+
+The `.env` file and persistent Palworld runtime data are excluded from Git.
 
 ### Docker Port Exposure
 
@@ -255,6 +304,17 @@ This provides Stirling PDF through the LAN and Tailscale interfaces without publ
 
 No router port forwarding is configured for Stirling PDF. Remote access is provided through Tailscale instead of exposing TCP port 8080 directly to the public Internet.
 
+Palworld publishes the game-related UDP ports defined by its Docker Compose configuration:
+
+```text
+8211/udp
+27015/udp
+```
+
+The Palworld REST API uses TCP port `8212` internally but is not published on the host.
+
+No router port forwarding is configured for Palworld. Remote game connections use Tailscale instead of exposing the server directly to the public Internet.
+
 ## Monitoring
 
 Uptime Kuma provides basic availability monitoring for the homelab.
@@ -265,8 +325,51 @@ The current monitoring setup checks:
 - Pi-hole web interface
 - Pi-hole DNS resolution
 - Stirling PDF web interface
+- Palworld Docker container
 - Internet connectivity
 - External DNS resolution
+
+Docker container monitoring is provided through a Docker socket proxy.
+
+The monitoring path is:
+
+```text
+Uptime Kuma
+     ↓
+Docker socket proxy
+     ↓
+Docker Engine
+     ↓
+Monitored container
+```
+
+Uptime Kuma connects to the proxy internally at:
+
+```text
+http://docker-socket-proxy:2375
+```
+
+The proxy is available only through Uptime Kuma's Docker network and is not published on a host port.
+
+This allows Uptime Kuma to monitor Docker containers without mounting the host Docker socket directly into the Uptime Kuma container.
+
+Palworld is monitored using a Docker Container monitor targeting:
+
+```text
+palworld-server
+```
+
+The monitor intentionally tracks the container rather than requiring the game process to continuously respond while idle.
+
+This was verified by allowing Palworld to enter its automatic paused state:
+
+```text
+Palworld game process → paused
+palworld-server       → running
+Uptime Kuma           → Up
+```
+
+The monitor therefore remains Up during normal idle pauses while still allowing the Docker container itself to be monitored.
 
 The local status page is available at:
 
@@ -280,7 +383,9 @@ The corresponding Tailscale address is:
 http://status-ts.home.arpa:3001/status/homelab
 ```
 
-Discord is configured for monitor notifications.
+Palworld is included on the homelab status page.
+
+Discord is configured for monitor notifications, including the Palworld container monitor.
 
 Because Uptime Kuma runs locally on the M70q, it cannot independently report a complete M70q or home Internet outage if the server cannot reach Discord. Independent external monitoring would be required for that use case.
 
@@ -293,6 +398,8 @@ Access to native services such as DNS and web interfaces is restricted to truste
 Docker introduces an additional networking boundary. Docker-published ports use Docker-managed forwarding/firewall rules and should not be assumed to follow UFW's normal incoming filtering behavior.
 
 Uptime Kuma's Docker network is permitted to reach only the native host services required for monitoring, including Pi-hole's HTTP and DNS ports.
+
+Docker container monitoring uses an internal Docker socket proxy on the Uptime Kuma Docker network. The proxy's Docker API port is not published on the M70q host.
 
 Where appropriate, Docker services can be explicitly bound to selected host addresses rather than published on wildcard addresses.
 
@@ -309,6 +416,7 @@ Detailed documentation for the homelab is available in the `docs/` directory:
 - [Firewall](docs/firewall.md)
 - [Uptime Kuma](docs/uptime-kuma.md)
 - [Stirling PDF](docs/stirling-pdf.md)
+- [Palworld](docs/palworld.md)
 
 Docker application configurations are stored separately under the `docker/` directory. Persistent application data and other sensitive runtime state are excluded from the public repository.
 
@@ -332,11 +440,21 @@ Docker application configurations are stored separately under the `docker/` dire
 - Docker Engine and Docker Compose
 - Docker persistent storage and bridge networking
 - Uptime Kuma monitoring
+- Docker container monitoring through a restricted socket proxy
 - Homelab status page
 - Stirling PDF deployment
 - Stirling PDF persistent application storage
 - LAN and Tailscale access to Stirling PDF
 - Explicit Docker host-interface port bindings for Stirling PDF
+- Palworld dedicated server deployment
+- Palworld persistent world and player data
+- LAN and Tailscale access to Palworld
+- Palworld automatic idle pause and wake
+- Palworld save-before-pause behavior
+- Palworld daily backups with 14-day retention
+- Palworld Docker container monitoring
+- Palworld status page integration
+- Environment-based Palworld secret management
 - Discord monitor notifications
 - Docker-to-host firewall troubleshooting
 - Reboot and service persistence testing

@@ -24,6 +24,19 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    container_name: docker-socket-proxy
+    restart: always
+    environment:
+      - CONTAINERS=1
+      - INFO=1
+      - PING=1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - kuma_network
+
 volumes:
   uptime-kuma-data:
     external: true

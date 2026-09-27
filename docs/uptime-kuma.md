@@ -4,13 +4,14 @@
 
 Uptime Kuma provides service monitoring for the homelab. It runs as a Docker container on the M70q and monitors the availability of local services, DNS resolution, and Internet connectivity.
 
-The initial monitoring setup includes:
+The monitoring setup includes:
 
 - M70q host reachability
 - Pi-hole web interface
 - Pi-hole DNS resolution
 - Internet connectivity
 - External DNS resolution
+- Palworld Docker container
 
 Discord is used for monitor notifications.
 
@@ -121,6 +122,86 @@ This provides a DNS test independent of the local Pi-hole resolver.
 
 Comparing the Pi-hole DNS and External DNS monitors can help distinguish between a local DNS problem and a broader Internet or external DNS connectivity problem.
 
+### Docker Container Monitoring
+
+Uptime Kuma can monitor Docker containers through the Docker API.
+
+Rather than mounting the host's Docker socket directly into the Uptime Kuma container, a Docker socket proxy is used as an intermediary.
+
+The monitoring path is:
+
+```text
+Uptime Kuma
+     ↓
+docker-socket-proxy
+     ↓
+Docker Engine
+     ↓
+Monitored container
+```
+
+The proxy runs as an additional service in:
+
+`docker/uptime-kuma/compose.yaml`
+
+It uses:
+
+`tecnativa/docker-socket-proxy:latest`
+
+The host Docker socket is mounted read-only into the proxy:
+
+```text
+/var/run/docker.sock → /var/run/docker.sock
+```
+
+The proxy and Uptime Kuma share the existing `kuma_network` Docker network.
+
+Uptime Kuma connects to the Docker API internally through:
+
+```text
+http://docker-socket-proxy:2375
+```
+
+Port `2375` is exposed only within the Docker network and is not published on the M70q host.
+
+The proxy is configured to expose only the Docker API functionality required for container discovery and monitoring:
+
+```text
+CONTAINERS=1
+INFO=1
+PING=1
+```
+
+This avoids mounting `/var/run/docker.sock` directly into the Uptime Kuma container and limits the Docker API functionality exposed to the monitoring application.
+
+The Docker Host connection was tested successfully from Uptime Kuma, which was able to discover the containers running on the M70q.
+
+#### Palworld
+
+The Palworld dedicated server is monitored using Uptime Kuma's Docker Container monitor.
+
+The monitor targets:
+
+`palworld-server`
+
+This monitors the state of the Palworld Docker container rather than relying on the game server itself to continuously respond to network queries.
+
+This distinction is important because Palworld is configured to automatically pause its game process after five minutes without connected players.
+
+The monitoring behavior was tested during an automatic pause:
+
+```text
+Palworld game process → paused
+palworld-server       → running
+Uptime Kuma           → Up
+```
+
+The monitor remained Up while the game process was intentionally paused.
+
+This allows Palworld to reduce resource usage while idle without generating a false downtime event in Uptime Kuma.
+
+Discord notifications are enabled for the Palworld monitor, and Palworld is included on the homelab status page.
+
 ## Notifications
 
 Discord is configured as the notification channel for Uptime Kuma.
@@ -196,6 +277,16 @@ Uptime Kuma  → running and healthy
 ```
 
 Uptime Kuma restarted automatically, and its existing monitors and configuration remained available through the persistent Docker volume.
+
+Docker API access through the Docker socket proxy was tested successfully.
+
+Uptime Kuma successfully discovered the M70q's Docker containers through:
+
+`http://docker-socket-proxy:2375`
+
+The Palworld Docker Container monitor successfully reported the `palworld-server` container as Up.
+
+Palworld was then allowed to enter its automatic paused state. The Uptime Kuma monitor remained Up while the game process was paused, confirming that normal idle pausing is not treated as a service outage.
 
 ## Troubleshooting Notes
 
