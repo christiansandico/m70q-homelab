@@ -1,0 +1,33 @@
+services:
+   palworld:
+      image: thijsvanloef/palworld-server-docker:latest
+      restart: unless-stopped
+      container_name: palworld-server
+      stop_grace_period: 30s # Set to however long you are willing to wait for the container to gracefully stop
+      ports:
+        - 8211:8211/udp
+        - 27015:27015/udp
+        # - 8212:8212/tcp  # REST API enabled port, enabled by default. DO NOT PORT FORWARD THIS.
+      environment:
+         PUID: 1000
+         PGID: 1000
+         PORT: 8211 # Optional but recommended
+         PLAYERS: 2 # Optional but recommended
+         DEATH_PENALTY: None
+         SERVER_PASSWORD: ${SERVER_PASSWORD} # Optional but recommended
+         REST_API_ENABLED: true
+         ENABLE_PLAYER_LOGGING: true
+         AUTO_PAUSE_ENABLED: true
+         AUTO_PAUSE_TIMEOUT_EST: 300
+         DELETE_OLD_BACKUPS: true
+         OLD_BACKUP_DAYS: 14
+         # REST_API_PORT: 8212
+         TZ: "Asia/Manila"
+         ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+         COMMUNITY: false  # Enable this if you want your server to show up in the community servers tab, USE WITH SERVER_PASSWORD!
+         # PUBLIC_PORT: 8211 # If enabling community server and using a different public port you must change this
+         SERVER_NAME: "Palworld Server"
+         SERVER_DESCRIPTION: "Private Palworld Server"
+         CROSSPLAY_PLATFORMS: "(Steam,Xbox,PS5,Mac)"
+      volumes:
+         - ./palworld:/palworld/
