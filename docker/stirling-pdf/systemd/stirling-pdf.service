@@ -1,0 +1,23 @@
+[Unit]
+Description=Stirling-PDF Docker Compose Service
+Requires=docker.service tailscaled.service
+After=docker.service tailscaled.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/home/chcn/m70q-homelab/docker/stirling-pdf
+
+# Wait for both IP addresses
+ExecStartPre=/bin/bash -c 'for i in {1..60}; do if ip -4 addr show | grep -q "192.168.1.253/" && ip -4 addr show | grep -q "100.66.59.119/"; then exit 0; fi; sleep 2; done; exit 1'
+
+ExecStart=/usr/bin/docker compose up -d
+ExecStop=/usr/bin/docker compose stop
+
+TimeoutStartSec=180
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
